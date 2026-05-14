@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace M7md5ttab\LaravelShared\Checkers;
+
+use Illuminate\Filesystem\Filesystem;
+use M7md5ttab\LaravelShared\Contracts\CheckInterface;
+use M7md5ttab\LaravelShared\DTOs\CheckResult;
+use M7md5ttab\LaravelShared\DTOs\EnvironmentContext;
+use M7md5ttab\LaravelShared\Enums\CheckStatus;
+
+final class StorageWritableCheck implements CheckInterface
+{
+    public function __construct(private readonly Filesystem $files)
+    {
+    }
+
+    public function check(EnvironmentContext $context): CheckResult
+    {
+        $writable = $this->files->isWritable($context->storagePath);
+
+        return new CheckResult(
+            key: 'storage-writable',
+            name: 'storage permissions',
+            status: $writable ? CheckStatus::Passed : CheckStatus::Failed,
+            message: $writable
+                ? 'The storage directory is writable.'
+                : 'The storage directory is not writable.',
+            recommendedFix: $writable ? null : 'Set writable permissions on storage, typically 775 for directories.',
+        );
+    }
+}

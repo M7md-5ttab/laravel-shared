@@ -1,0 +1,47 @@
+{
+    "name": "m7md-5ttab/laravel-shared",
+    "description": "Production-grade Laravel shared hosting deployment toolkit for readiness checks, safe publishing, and rollback workflows.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "shared-hosting",
+        "deployment",
+        "artisan",
+        "cpanel",
+        "hostinger"
+    ],
+    "require": {
+    "php": "^8.2",
+    "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+    "illuminate/console": "^11.0 || ^12.0 || ^13.0",
+    "illuminate/filesystem": "^11.0 || ^12.0 || ^13.0"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^9.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "M7md5ttab\\LaravelShared\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "M7md5ttab\\LaravelShared\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "M7md5ttab\\LaravelShared\\LaravelSharedServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
