@@ -40,6 +40,16 @@ final class GitService
         return $result->isSuccessful() && trim($result->output) !== '';
     }
 
+    public function hasIdentity(string $path): bool
+    {
+        if (! $this->isInstalled()) {
+            return false;
+        }
+
+        return $this->configValue($path, 'user.name') !== null
+            && $this->configValue($path, 'user.email') !== null;
+    }
+
     public function initializeRepository(string $path): void
     {
         $result = $this->processRunner->run(['git', 'init'], $path);
@@ -93,6 +103,12 @@ final class GitService
         if (! $result->isSuccessful()) {
             throw new HostingException(trim($result->errorOutput) ?: 'Unable to create deployment tag.');
         }
+    }
+
+    public function configureIdentity(string $path, string $name, string $email): void
+    {
+        $this->setConfigValue($path, 'user.name', $name);
+        $this->setConfigValue($path, 'user.email', $email);
     }
 
     public function headCommitHash(string $path): ?string
@@ -213,5 +229,27 @@ final class GitService
     public function rollbackToTag(string $path, string $tagName): void
     {
         $this->resetHard($path, $tagName);
+    }
+
+    private function configValue(string $path, string $key): ?string
+    {
+        $result = $this->processRunner->run(['git', 'config', $key], $path);
+
+        if (! $result->isSuccessful()) {
+            return null;
+        }
+
+        $value = trim($result->output);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function setConfigValue(string $path, string $key, string $value): void
+    {
+        $result = $this->processRunner->run(['git', 'config', $key, $value], $path);
+
+        if (! $result->isSuccessful()) {
+            throw new HostingException(trim($result->errorOutput) ?: "Unable to configure git {$key}.");
+        }
     }
 }

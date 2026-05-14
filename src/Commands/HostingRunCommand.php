@@ -47,6 +47,8 @@ final class HostingRunCommand extends Command
             dryRun: (bool) $this->option('dry-run'),
             createTag: (bool) $this->option('tag') || $this->option('tag-name') !== null,
             tagName: $this->option('tag-name') !== null ? (string) $this->option('tag-name') : null,
+            interactiveFixes: true,
+            confirm: fn (string $question): bool => $this->confirmWithChoice($question, true),
         );
 
         $this->renderReadinessReport($prepared->initialReport, 'Initial Readiness Report');

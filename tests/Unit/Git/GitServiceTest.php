@@ -32,6 +32,45 @@ final class GitServiceTest extends TestCase
         self::assertTrue($service->isInstalled());
     }
 
+    public function test_it_detects_when_git_identity_is_configured(): void
+    {
+        $runner = Mockery::mock(ProcessRunnerInterface::class);
+        $runner->shouldReceive('run')
+            ->once()
+            ->withArgs(fn (array $command, ?string $workingDirectory = null, array $environment = [], ?int $timeout = 60): bool => $command === ['git', '--version'] && $workingDirectory === null)
+            ->andReturn(new ProcessResult(['git', '--version'], 0, 'git version 2.45.0', ''));
+        $runner->shouldReceive('run')
+            ->once()
+            ->withArgs(fn (array $command, ?string $workingDirectory = null): bool => $command === ['git', 'config', 'user.name'] && $workingDirectory === '/repo')
+            ->andReturn(new ProcessResult(['git', 'config', 'user.name'], 0, "Laravel Shared Tool\n", ''));
+        $runner->shouldReceive('run')
+            ->once()
+            ->withArgs(fn (array $command, ?string $workingDirectory = null): bool => $command === ['git', 'config', 'user.email'] && $workingDirectory === '/repo')
+            ->andReturn(new ProcessResult(['git', 'config', 'user.email'], 0, "tool@local\n", ''));
+
+        $service = new GitService($runner);
+
+        self::assertTrue($service->hasIdentity('/repo'));
+    }
+
+    public function test_it_configures_a_local_git_identity(): void
+    {
+        $runner = Mockery::mock(ProcessRunnerInterface::class);
+        $runner->shouldReceive('run')
+            ->once()
+            ->withArgs(fn (array $command, ?string $workingDirectory = null): bool => $command === ['git', 'config', 'user.name', 'Laravel Shared Tool'] && $workingDirectory === '/repo')
+            ->andReturn(new ProcessResult(['git', 'config', 'user.name', 'Laravel Shared Tool'], 0, '', ''));
+        $runner->shouldReceive('run')
+            ->once()
+            ->withArgs(fn (array $command, ?string $workingDirectory = null): bool => $command === ['git', 'config', 'user.email', 'tool@local'] && $workingDirectory === '/repo')
+            ->andReturn(new ProcessResult(['git', 'config', 'user.email', 'tool@local'], 0, '', ''));
+
+        $service = new GitService($runner);
+        $service->configureIdentity('/repo', 'Laravel Shared Tool', 'tool@local');
+
+        self::assertTrue(true);
+    }
+
     public function test_it_creates_a_snapshot_commit(): void
     {
         $runner = Mockery::mock(ProcessRunnerInterface::class);

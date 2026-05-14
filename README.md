@@ -132,6 +132,7 @@ Useful notes:
 What `hosting:run` can fix automatically:
 
 - initialize Git when Git is installed and the project is not yet a repository
+- offer to configure a local Git identity when `user.name` or `user.email` is missing for snapshot commits
 - append missing Laravel-related `.gitignore` rules
 - create `public/storage`
 - apply writable permissions to Laravel runtime directories

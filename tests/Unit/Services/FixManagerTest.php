@@ -89,6 +89,80 @@ final class FixManagerTest extends TestCase
         self::assertSame('[dry-run] Would create the initial git snapshot commit after automatic fixes.', $results[1]->message);
     }
 
+    public function test_it_applies_interactive_fixers_after_confirmation(): void
+    {
+        $container = new Container();
+        $runner = Mockery::mock(ProcessRunnerInterface::class);
+        $git = new GitService($runner);
+        $pipeline = Mockery::mock(CheckPipeline::class);
+
+        $manager = new FixManager(
+            $container,
+            [InteractiveIdentityTestFixer::class],
+            $pipeline,
+            $git,
+        );
+
+        $report = new ReadinessReport($this->environment(), [
+            new CheckResult(
+                'git-identity',
+                'Git identity',
+                CheckStatus::Failed,
+                'Git identity is missing.',
+                'Run git config user.name "Your Name" && git config user.email "you@example.com".',
+            ),
+        ]);
+
+        $results = $manager->applyAutomaticFixes(
+            $report,
+            interactive: true,
+            confirm: fn (string $question): bool => $question === 'Git identity not configured. Do you want to auto-config it?',
+        );
+
+        self::assertCount(1, $results);
+        self::assertSame('Configured git identity.', $results[0]->message);
+        self::assertTrue($results[0]->performed);
+    }
+
+    public function test_it_returns_manual_guidance_when_an_interactive_fixer_is_declined(): void
+    {
+        $container = new Container();
+        $runner = Mockery::mock(ProcessRunnerInterface::class);
+        $git = new GitService($runner);
+        $pipeline = Mockery::mock(CheckPipeline::class);
+
+        $manager = new FixManager(
+            $container,
+            [InteractiveIdentityTestFixer::class],
+            $pipeline,
+            $git,
+        );
+
+        $report = new ReadinessReport($this->environment(), [
+            new CheckResult(
+                'git-identity',
+                'Git identity',
+                CheckStatus::Failed,
+                'Git identity is missing.',
+                'Run git config user.name "Your Name" && git config user.email "you@example.com".',
+            ),
+        ]);
+
+        $results = $manager->applyAutomaticFixes(
+            $report,
+            interactive: true,
+            confirm: static fn (string $question): bool => false,
+        );
+
+        self::assertCount(1, $results);
+        self::assertSame(ActionStatus::Skipped, $results[0]->status);
+        self::assertSame('Skipped by user.', $results[0]->message);
+        self::assertSame(
+            'Run git config user.name "Your Name" && git config user.email "you@example.com".',
+            $results[0]->nextStep,
+        );
+    }
+
     private function environment(): EnvironmentContext
     {
         return new EnvironmentContext(
@@ -171,5 +245,28 @@ final class RepositoryBootstrapFixer implements FixerInterface
     public function fix(CheckResult $result, EnvironmentContext $context): FixResult
     {
         return new FixResult('Git repository initialization', ActionStatus::Success, 'Initialized the repository.', true);
+    }
+}
+
+final class InteractiveIdentityTestFixer implements FixerInterface
+{
+    public function supports(CheckResult $result): bool
+    {
+        return $result->key === 'git-identity';
+    }
+
+    public function automation(): FixerAutomation
+    {
+        return FixerAutomation::Interactive;
+    }
+
+    public function description(CheckResult $result, EnvironmentContext $context): string
+    {
+        return 'Git identity not configured. Do you want to auto-config it?';
+    }
+
+    public function fix(CheckResult $result, EnvironmentContext $context): FixResult
+    {
+        return new FixResult('Git identity', ActionStatus::Success, 'Configured git identity.', true);
     }
 }

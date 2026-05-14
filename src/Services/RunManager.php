@@ -36,11 +36,13 @@ class RunManager
         bool $dryRun = false,
         bool $createTag = false,
         ?string $tagName = null,
+        bool $interactiveFixes = false,
+        ?callable $confirm = null,
     ): RunResult {
         $initialReport = $this->checkPipeline->run();
         $automaticFixes = $dryRun
             ? $this->fixManager->previewAutomaticFixes($initialReport)
-            : $this->fixManager->applyAutomaticFixes($initialReport);
+            : $this->fixManager->applyAutomaticFixes($initialReport, $interactiveFixes, $confirm);
         $targetPreparation = $this->prepareTargetDirectory($initialReport->environment, $target, $dryRun);
 
         if ($targetPreparation !== null) {

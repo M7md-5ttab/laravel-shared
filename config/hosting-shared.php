@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use M7md5ttab\LaravelShared\Checkers\BootstrapCacheWritableCheck;
 use M7md5ttab\LaravelShared\Checkers\GitIgnoreCheck;
+use M7md5ttab\LaravelShared\Checkers\GitIdentityCheck;
 use M7md5ttab\LaravelShared\Checkers\GitInstalledCheck;
 use M7md5ttab\LaravelShared\Checkers\GitRemoteCheck;
 use M7md5ttab\LaravelShared\Checkers\GitRepositoryCheck;
@@ -17,6 +18,7 @@ use M7md5ttab\LaravelShared\Checkers\StorageLinkCheck;
 use M7md5ttab\LaravelShared\Checkers\StorageWritableCheck;
 use M7md5ttab\LaravelShared\Checkers\SymlinkSupportCheck;
 use M7md5ttab\LaravelShared\Fixers\GitIgnoreFixer;
+use M7md5ttab\LaravelShared\Fixers\GitIdentityFixer;
 use M7md5ttab\LaravelShared\Fixers\GitInstallFixer;
 use M7md5ttab\LaravelShared\Fixers\GitRepositoryFixer;
 use M7md5ttab\LaravelShared\Fixers\WritablePermissionsFixer;
@@ -94,6 +96,7 @@ return [
         GitInstalledCheck::class,
         GitRepositoryCheck::class,
         GitRemoteCheck::class,
+        GitIdentityCheck::class,
         GitIgnoreCheck::class,
         SymlinkSupportCheck::class,
         StorageLinkCheck::class,
@@ -110,6 +113,7 @@ return [
     'fixers' => [
         GitInstallFixer::class,
         GitRepositoryFixer::class,
+        GitIdentityFixer::class,
         GitIgnoreFixer::class,
         WritablePermissionsFixer::class,
     ],

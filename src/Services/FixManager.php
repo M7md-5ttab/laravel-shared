@@ -46,22 +46,6 @@ class FixManager
                 continue;
             }
 
-            if ($interactive) {
-                $shouldRun = $confirm !== null
-                    ? $confirm($fixer->description($checkResult, $report->environment))
-                    : false;
-
-                if (! $shouldRun) {
-                    $results[] = new FixResult(
-                        name: $checkResult->name,
-                        status: ActionStatus::Skipped,
-                        message: 'Skipped by user.',
-                    );
-
-                    continue;
-                }
-            }
-
             $result = $fixer->fix($checkResult, $report->environment);
             $results[] = $result;
 
@@ -70,7 +54,40 @@ class FixManager
             }
         }
 
-        $snapshotResult = $this->createInitialCommitIfNeeded($report, $repositoryInitialized);
+        $interactiveReport = $repositoryInitialized ? $this->rerunChecks() : $report;
+
+        foreach ($interactiveReport->results as $checkResult) {
+            if (! $checkResult->needsAttention()) {
+                continue;
+            }
+
+            $fixer = $this->findFixer($checkResult, FixerAutomation::Interactive);
+
+            if ($fixer === null) {
+                continue;
+            }
+
+            if (! $interactive || $confirm === null) {
+                $results[] = $this->skippedInteractiveFixResult(
+                    $checkResult,
+                    'Interactive confirmation is required before this git fix can be applied.',
+                );
+
+                continue;
+            }
+
+            $shouldRun = $confirm($fixer->description($checkResult, $interactiveReport->environment));
+
+            if (! $shouldRun) {
+                $results[] = $this->skippedInteractiveFixResult($checkResult, 'Skipped by user.');
+
+                continue;
+            }
+
+            $results[] = $fixer->fix($checkResult, $interactiveReport->environment);
+        }
+
+        $snapshotResult = $this->createInitialCommitIfNeeded($interactiveReport, $repositoryInitialized);
 
         if ($snapshotResult !== null) {
             $results[] = $snapshotResult;
@@ -92,7 +109,10 @@ class FixManager
                 continue;
             }
 
-            $fixer = $this->findFixer($checkResult, FixerAutomation::Automatic);
+            $fixer = $this->findFixerForAutomations($checkResult, [
+                FixerAutomation::Automatic,
+                FixerAutomation::Interactive,
+            ]);
 
             if ($fixer === null) {
                 continue;
@@ -101,7 +121,7 @@ class FixManager
             $results[] = new FixResult(
                 name: $checkResult->name,
                 status: ActionStatus::Skipped,
-                message: $this->previewMessage($fixer->description($checkResult, $report->environment)),
+                message: $this->previewFixMessage($fixer, $checkResult, $report),
             );
 
             if ($checkResult->key === 'git-repository') {
@@ -151,6 +171,17 @@ class FixManager
 
     private function findFixer(CheckResult $checkResult, ?FixerAutomation $automation = null): ?FixerInterface
     {
+        return $this->findFixerForAutomations(
+            $checkResult,
+            $automation !== null ? [$automation] : null,
+        );
+    }
+
+    /**
+     * @param  null|array<int, FixerAutomation>  $automations
+     */
+    private function findFixerForAutomations(CheckResult $checkResult, ?array $automations = null): ?FixerInterface
+    {
         foreach ($this->fixerClasses as $fixerClass) {
             /** @var FixerInterface $fixer */
             $fixer = $this->container->make($fixerClass);
@@ -159,7 +190,7 @@ class FixManager
                 continue;
             }
 
-            if ($automation !== null && $fixer->automation() !== $automation) {
+            if ($automations !== null && ! in_array($fixer->automation(), $automations, true)) {
                 continue;
             }
 
@@ -179,6 +210,15 @@ class FixManager
 
         if (! $this->git->isInstalled() || ! $this->git->isRepository($basePath) || $this->git->hasCommits($basePath)) {
             return null;
+        }
+
+        if (! $this->git->hasIdentity($basePath)) {
+            return new FixResult(
+                name: 'Initial git snapshot',
+                status: ActionStatus::Warning,
+                message: 'Repository was initialized, but the first commit is waiting for a git identity.',
+                nextStep: $this->recommendedFix($report, 'git-identity', 'Run git config user.name "Your Name" && git config user.email "you@example.com" inside this repository, then rerun hosting:run.'),
+            );
         }
 
         try {
@@ -204,5 +244,35 @@ class FixManager
         $normalized = rtrim(trim($description), ' ?');
 
         return '[dry-run] Would ' . lcfirst($normalized) . '.';
+    }
+
+    private function previewFixMessage(FixerInterface $fixer, CheckResult $checkResult, ReadinessReport $report): string
+    {
+        if ($fixer->automation() === FixerAutomation::Interactive && $checkResult->key === 'git-identity') {
+            return '[dry-run] Would configure a local git identity for this repository.';
+        }
+
+        return $this->previewMessage($fixer->description($checkResult, $report->environment));
+    }
+
+    private function skippedInteractiveFixResult(CheckResult $checkResult, string $message): FixResult
+    {
+        return new FixResult(
+            name: $checkResult->name,
+            status: ActionStatus::Skipped,
+            message: $message,
+            nextStep: $checkResult->recommendedFix,
+        );
+    }
+
+    private function recommendedFix(ReadinessReport $report, string $key, string $fallback): string
+    {
+        foreach ($report->results as $result) {
+            if ($result->key === $key && $result->recommendedFix !== null && $result->recommendedFix !== '') {
+                return $result->recommendedFix;
+            }
+        }
+
+        return $fallback;
     }
 }
